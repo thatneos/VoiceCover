@@ -33,10 +33,6 @@ from zipfile import ZipFile
 
 
 
-
-
-
-
 class Config:
     def __init__(self, device, is_half):
         self.device = device
@@ -267,7 +263,7 @@ def get_youtube_video_id(url):
 
 device = 'cuda:0'
 config = Config(device, True)
-hubert_model = load_hubert(device, config.is_half,'hubert_base.pt')
+hubert_model = load_hubert(device,'hubert_base.pt')
 pitch_change = 0
 f0_method = 'rmvpe'
 volume_envelope = 0.25
@@ -276,4 +272,3 @@ filter_radius=3
 crepe_hop_length = 128
 protect=0.33
 rms_mix_rate=0.25
-
