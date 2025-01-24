@@ -222,21 +222,16 @@ def preprocess_song(song_input, mdx_model_params, song_id,mdxnet_models_dir='mdx
     if not os.path.exists(os.path.join(f"{output_dir}/{song_id}",f"{orig_song_path.replace('.mp3','')}_Vocals.wav")) and not os.path.exists(os.path.join(f"{output_dir}/{song_id}",f"{orig_song_path.replace('.mp3','')}_Instrumental.wav")):
         orig_song_path = convert_to_stereo(orig_song_path)
         print('[~] Separating Vocals from Instrumental...')
-        vocals_path, instrumentals_path = run_mdx(mdx_model_params, song_output_dir, os.path.join(mdxnet_models_dir, 'UVR-MDX-NET-Voc_FT.onnx'), orig_song_path, denoise=True, keep_orig=keep_orig)
+        vocals_path, instrumentals_path = run_uvr(song_output_dir, 'model_bs_roformer_ep_317_sdr_12.9755.ckpt', orig_song_path, denoise=True, keep_orig=keep_orig)
     else:
         vocals_path, instrumentals_path=os.path.join(f"{output_dir}/{song_id}",f"{orig_song_path.replace('.mp3','')}_Vocals.wav") , os.path.join(f"{output_dir}/{song_id}",f"{orig_song_path.replace('.mp3','')}_Instrumental.wav")
-    if not os.path.exists(os.path.join(f"{output_dir}/{song_id}",f"{orig_song_path.replace('.mp3','')}_Vocals_Main.wav")) and not os.path.exists(os.path.join(f"{output_dir}/{song_id}",f"{orig_song_path.replace('.mp3','')}_Vocals_Backup.wav")):
-        print('[~] Separating Main Vocals from Backup Vocals...')
-        backup_vocals_path, main_vocals_path = run_mdx(mdx_model_params, song_output_dir, os.path.join(mdxnet_models_dir, 'UVR_MDXNET_KARA_2.onnx'), vocals_path, suffix='Backup', invert_suffix='Main', denoise=True)
-    else:
-        main_vocals_path, backup_vocals_path=os.path.join(f"{output_dir}/{song_id}",f"{orig_song_path.replace('.mp3','')}_Vocals_Main.wav") , os.path.join(f"{output_dir}/{song_id}",f"{orig_song_path.replace('.mp3','')}_Vocals_Backup.wav")
-    return orig_song_path, vocals_path, instrumentals_path, main_vocals_path, backup_vocals_path
-
+    
+    return orig_song_path, vocals_path, instrumentals_path
+    
 def combine_audio(audio_paths, output_path, main_gain=0, backup_gain=0, inst_gain=0, output_format='mp3'):
     main_vocal_audio = AudioSegment.from_wav(audio_paths[0]) - 4 + main_gain
-    backup_vocal_audio = AudioSegment.from_wav(audio_paths[1]) - 6 + backup_gain
     instrumental_audio = AudioSegment.from_wav(audio_paths[2]) - 7 + inst_gain
-    main_vocal_audio.overlay(backup_vocal_audio).overlay(instrumental_audio).export(output_path, format=output_format)
+    main_vocal_audio.overlay(instrumental_audio).export(output_path, format=output_format)
 
 def yt_download(link):
     ydl_opts = {
@@ -255,33 +250,9 @@ def yt_download(link):
 
     return download_path
 
-def get_youtube_video_id(url, ignore_playlist=True):
-    """
-    Examples:
-    http://youtu.be/SA2iWivDJiE
-    http://www.youtube.com/watch?v=_oPAwA_Udwc&feature=feedu
-    http://www.youtube.com/embed/SA2iWivDJiE
-    http://www.youtube.com/v/SA2iWivDJiE?version=3&amp;hl=en_US
-    """
-    query = urlparse(url)
-    if query.hostname == 'youtu.be':
-        if query.path[1:] == 'watch':
-            return query.query[2:]
-        return query.path[1:]
-
-    if query.hostname in {'www.youtube.com', 'youtube.com', 'music.youtube.com'}:
-        if not ignore_playlist:
-            # use case: get playlist id not current video in playlist
-            with suppress(KeyError):
-                return parse_qs(query.query)['list'][0]
-        if query.path == '/watch':
-            return parse_qs(query.query)['v'][0]
-        if query.path[:7] == '/watch/':
-            return query.path.split('/')[1]
-        if query.path[:7] == '/embed/':
-            return query.path.split('/')[2]
-        if query.path[:3] == '/v/':
-            return query.path.split('/')[2]
-
-    # returns None for invalid YouTube url
+def get_youtube_video_id(url):
+    pattern = r"(?:v=|\/)([0-9A-Za-z_-]{11})"
+    match = re.search(pattern, url)
+    if match:
+        return match.group(1)
     return None
